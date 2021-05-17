@@ -1,0 +1,113 @@
+---
+- hosts: kube-cluster
+  gather_facts: yes
+  become: yes
+  roles:
+    - { role: docker, tags: docker }
+
+- hosts: kube-cluster
+  become: yes
+  tasks:
+    - name: Delete content & directory
+      file:
+        state: absent
+        path: /etc/containerd/config.toml
+    - name: Restart service containerd, in all cases
+      ansible.builtin.service:
+        name: containerd
+        state: restarted
+
+- hosts: master
+  gather_facts: yes
+  become: yes
+  roles:
+    - { role: kubernetes/master, tags: master }
+    - { role: cni, tags: cni }
+
+- hosts: node
+  gather_facts: yes
+  become: yes
+  roles:
+    - { role: kubernetes/node, tags: node }
+
+- hosts: master
+  gather_facts: yes
+  become: yes
+  environment:
+    KUBE_CONFIG: "~/admin.conf"
+  tasks:
+    - name: "copy configuration to user directory"
+      fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: ~/admin.conf
+        flat: yes
+    
+    - name: "copy configuration to local user directory"
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: ~/admin.conf
+        owner: ndricimdanaj
+        remote_src: yes
+    
+    - name: Download helm
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+        dest: ~/get_helm.sh
+        mode: '0700'
+
+    - name: Execute the helm install script
+      command: sh ~/get_helm.sh
+      when: "additional_features.helm"
+      run_once: yes
+      tags: helm
+      ignore_errors: True
+
+    # - name: "Helm role"
+    #   include_role:
+    #     name: helm
+    #   when: "additional_features.helm"
+    #   run_once: yes
+    #   tags: helm
+
+    - name: "MetalLB role"
+      include_role:
+        name: metallb
+      when: "additional_features.metallb"
+      run_once: yes
+      tags: metallb
+
+    - name: "Healthcheck role"
+      include_role:
+        name: healthcheck
+      when: "additional_features.healthcheck"
+      run_once: yes
+      tags: healthcheck
+
+- hosts: jenkins
+  gather_facts: yes
+  become: yes
+  vars:
+    jenkins_prefer_lts: true
+    jenkins_hostname: "40.113.247.15"
+    java_packages:
+      - openjdk-8-jdk
+    jenkins_plugins:
+      - blueocean
+      - name: workflow-api
+        version: "2.42"
+      - name: workflow-step-api
+        version: "2.23"
+      - authentication-tokens
+      - cloudbees-folder
+      - credentials
+      - durable-task
+      - jackson2-api
+      - kubernetes-client-api
+      - metrics
+      - plain-credentials
+      - structs
+      - variant
+      - kubernetes-credentials
+  roles:
+    - role: geerlingguy.java
+    - role: geerlingguy.jenkins

@@ -1,0 +1,25 @@
+kube-cluster:
+  children:
+    master:
+      hosts:
+        host1:
+          ansible_host: "13.81.26.46"
+    node:
+      hosts:
+        host2:
+          ansible_host: "13.73.184.42"
+        host3:
+          ansible_host: "13.73.184.45"
+  vars:
+    ansible_user: "ndricimdanaj"
+    ansible_password: "Cimicimi123!@#"
+    ansible_sudo_pass: "Cimicimi123!@#"
+
+jenkins:
+  hosts:
+    host4:
+      ansible_host: "40.113.247.15"
+  vars:
+    ansible_user: "ndricimdanaj"
+    ansible_password: "Cimicimi123!@#"
+    ansible_sudo_pass: "Cimicimi123!@#"

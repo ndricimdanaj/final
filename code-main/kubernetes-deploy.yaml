@@ -1,0 +1,73 @@
+- hosts: localhost
+  gather_facts: false
+  vars:
+    #ansible_python_interpreter: '{{ ansible_playbook_python }}'
+    image_name: 'ndricimdanaj/javacicd'
+    image_tag: latest
+    replicas: 2
+  tasks:
+    - name: Remove an existing Service object
+      k8s:
+        state: absent
+        api_version: v1
+        kind: Service
+        namespace: default
+        name: web-service
+    - name: 'Remove an existing deployment object'
+      k8s:
+        state: absent
+        api_version: v1
+        kind: Deployment
+        namespace: default
+        name: web
+    - name: Create a Deployment for Hello Java.
+      k8s:
+        state: present
+        validate_certs: 'no'
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: web
+            namespace: default
+          spec:
+            replicas: "{{ replicas }}"
+            selector:
+              matchLabels:
+                app: web
+                service: web-service
+            template:
+              metadata:
+                labels:
+                  app: web
+                  service: web-service
+              spec:
+                containers:
+                - name: web
+                  image: "{{ image_name }}:{{ image_tag }}"
+                  imagePullPolicy: IfNotPresent
+                  ports:
+                  - containerPort: 9080
+    - name: Create a Service object from an inline definition
+      k8s:
+        state: present
+        validate_certs: 'no'
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: web-service
+            namespace: default
+            labels:
+              app: web
+              service: web-service
+          spec:
+            type: NodePort
+            selector:
+              app: web
+              service: web-serice
+            ports:
+            - protocol: TCP
+              targetPort: 9080
+              name: port-8000-tcp
+              port: 8080
